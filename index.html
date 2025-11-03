@@ -129,7 +129,7 @@
         <!-- PHẦN 2: "Số liệu" (Nội dung được dời vào đây) --><div class="container max-w-3xl mx-auto px-4 sm:px-6 md:px-8 py-2">
             
             <!-- "Số liệu" cho Tab 1 --><div id="subheader-all" class="subheader-panel active">
-                <div id="controls-all" class_ ="flex flex-col sm:flex-row gap-2 justify-center mb-2">
+                <div id="controls-all" class="flex flex-col sm:flex-row gap-2 justify-center mb-2">
                     <button id="shuffle-btn" class="w-full sm:w-auto mb-1 sm:mb-0 bg-purple-600 hover:bg-purple-700 text-white font-bold py-1 px-3 rounded-lg shadow transition duration-200 flex-1 text-sm">
                         <i class="fas fa-random"></i> Đảo câu hỏi & đáp án
                     </button>
@@ -1094,15 +1094,29 @@
             }
 
             /**
-             * Đánh dấu câu hỏi là sai trong Lịch sử toàn cục
+             * Đánh dấu câu hỏi là sai trong Lịch sử toàn cục và cập nhật các tab liên quan.
              */
             markAsWrongInHistory(localIndex) {
                 const originalIndex = this.quizData[localIndex].originalIndex;
-                if (!wrongQuestionHistory.has(originalIndex)) {
+                const isNewWrongAnswer = !wrongQuestionHistory.has(originalIndex);
+
+                if (isNewWrongAnswer) {
                     wrongQuestionHistory.add(originalIndex);
                     saveWrongHistory(); // Lưu vào localStorage
+
+                    // Khi có một câu trả lời sai mới, chúng ta cần cập nhật các tab phụ.
+                    // Điều này sẽ đảm bảo tab "Hay Sai" và "Làm Lại" luôn được cập nhật.
+                    
+                    // Xóa tiến độ đã lưu của tab "Làm Lại" để buộc nó phải tạo lại hoàn toàn
+                    // với danh sách câu hỏi mới, tránh lỗi tải sai tiến độ cũ.
+                    localStorage.removeItem('quiz-progress-quiz-container-redo');
+                    
+                    renderWrongHistoryTab();
+                    renderRedoMcTab();
                 }
-                saveProgress(this); // Lưu tiến độ sau khi đánh dấu câu sai
+                
+                // Luôn lưu tiến độ của tab hiện tại, bất kể câu trả lời là mới hay không.
+                saveProgress(this);
             }
             
             // --- CÁC HÀM TIỆN ÍCH CỦA INSTANCE ---
@@ -1175,20 +1189,6 @@
         } // --- HẾT LỚP QUIZ ---
 
 
-        /**
-         * Check và load tiến độ khi khởi động
-         */
-        function checkAndLoadProgress() {
-            if (mainQuiz) {
-                loadProgress(mainQuiz);
-                mainQuiz.init();
-            }
-            if (redoQuiz) {
-                loadProgress(redoQuiz);
-                redoQuiz.init();
-            }
-        }
-
         // --- CÁC HÀM QUẢN LÝ TAB VÀ LỊCH SỬ ---
 
         /**
@@ -1216,15 +1216,16 @@
          * Xóa toàn bộ lịch sử lỗi sai
          */
         function clearWrongHistory() {
-            // Tạm thời chỉ xóa, không hỏi
-            wrongQuestionHistory.clear();
-            saveWrongHistory();
-            renderWrongHistoryTab();
-            if (redoQuiz) {
-                redoQuiz.container.innerHTML = '';
-                redoQuiz = null;
+            if (confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử lỗi sai không? Hành động này không thể hoàn tác.')) {
+                wrongQuestionHistory.clear();
+                saveWrongHistory();
+
+                // Xóa tiến độ đã lưu của tab "Làm Lại" để đảm bảo nó được làm mới hoàn toàn.
+                localStorage.removeItem('quiz-progress-quiz-container-redo');
+
+                renderWrongHistoryTab();
+                renderRedoMcTab();
             }
-            renderRedoMcTab();
         }
 
         /**
@@ -1335,7 +1336,8 @@
             if (tabName === 'wrong') {
                 renderWrongHistoryTab();
             } else if (tabName === 'redo') {
-                renderRedoMcTab();
+                // Đã được render tự động ở background, không cần render lại ở đây
+                // renderRedoMcTab();
             }
         }
 
@@ -1378,9 +1380,12 @@
             
             // Cập nhật số đếm ban đầu
             document.getElementById('wrong-history-count').innerText = wrongQuestionHistory.size;
+
+            // Khởi tạo các tab ẩn để sẵn sàng
+            renderWrongHistoryTab();
+            renderRedoMcTab();
         });
 
     </script>
 </body>
 </html>
-
